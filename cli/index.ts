@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.0.4";
+const VERSION = "2.0.5";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -179,10 +179,13 @@ async function cmdInit() {
   const commandsDir = join(cwd, ".claude/commands");
   mkdirSync(commandsDir, { recursive: true });
   
-  // Symlink main /beans command
-  const beansCmd = join(pluginSource, "commands/beans.md");
-  if (existsSync(beansCmd)) {
-    await $`ln -sf ${beansCmd} ${join(commandsDir, "beans.md")}`.nothrow();
+  // Register only the clean BEANS commands (not all 44 underlying commands)
+  const beansCommands = ["beans.md", "beans-status.md", "beans-land.md"];
+  for (const cmd of beansCommands) {
+    const src = join(pluginSource, "commands", cmd);
+    if (existsSync(src)) {
+      await $`ln -sf ${src} ${join(commandsDir, cmd)}`.nothrow();
+    }
   }
   
   // Symlink CLAUDE.md for project docs
@@ -190,7 +193,7 @@ async function cmdInit() {
   if (existsSync(claudeMd)) {
     await $`ln -sf ${claudeMd} ${join(cwd, ".claude/CLAUDE.md")}`.nothrow();
   }
-  success("Commands registered");
+  success("Commands registered (3 BEANS commands)");
   
   // Track installation
   config.installed_at = config.installed_at || [];

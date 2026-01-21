@@ -1,172 +1,91 @@
 ---
-description: BEANS - Unified autonomous development (Beads + Ralph + Valyu)
-argument-hint: [description | issue-id | list | status | --quick]
-allowed-tools: [Read, Write, Bash, Task, AskUserQuestion]
+description: BEANS - Autonomous development (create issue → research → plan → build → land)
+argument-hint: ["description" | issue-id | status | --quick]
 ---
 
-# /beans - Unified Autonomous Development
+# /beans - Autonomous Development
 
-BEANS combines three systems:
-- **Beads** (`bd` CLI) - Git-backed issue tracking and memory
-- **Ralph** - Spec-driven autonomous execution
-- **Valyu** - Knowledge retrieval and research
+Single command for the entire development lifecycle.
 
 ## Usage
 
 ```bash
-/beans                              # List ready issues (bd ready)
-/beans list                         # Same as above
-/beans status                       # Show current spec and task status
-/beans "Add OAuth2 login"           # Full flow: create issue → spec → execute
-/beans "Add OAuth2 login" --quick   # Quick mode: skip spec phases
-/beans task-001                     # Build from existing beads issue
+/beans                              # List ready issues
+/beans status                       # Show current task status
+/beans "Add OAuth2 login"           # Full flow: issue → research → plan → build
+/beans "Add OAuth2 login" --quick   # Quick mode: skip interactive phases
+/beans task-001                     # Continue existing issue
 ```
 
-## Workflow
+## What It Does
 
-### Standard Mode (`/beans "goal"`)
+1. **Creates issue** in beads (`bd create`)
+2. **Researches** your codebase
+3. **Plans** requirements, design, and tasks
+4. **Builds** by executing tasks autonomously
+5. **Lands** with commit, push, and issue close
 
-1. **Create Issue**: `bd create "goal" -t feature`
-2. **Start Spec**: Create `./specs/<name>/` directory
-3. **Research Phase**: Analyze codebase, search web (delegates to research-analyst)
-4. **Requirements Phase**: Generate user stories (delegates to product-manager)
-5. **Design Phase**: Technical architecture (delegates to architect-reviewer)
-6. **Tasks Phase**: Break into executable tasks (delegates to task-planner)
-7. **Execute**: Run tasks one-by-one until complete (delegates to spec-executor)
-8. **Complete**: Close issue, commit, push
+## Arguments
 
-### Quick Mode (`/beans "goal" --quick`)
+| Argument | Action |
+|----------|--------|
+| (none) | List ready issues (`bd ready`) |
+| `status` | Show current spec + issue status |
+| `"description"` | Create issue and start full flow |
+| `issue-id` | Continue work on existing issue |
+| `--quick` | Skip interactive phases |
 
-Skips spec phases, auto-generates all artifacts, starts execution immediately.
-
-## Detection Logic
+## Flow
 
 ```
-1. Parse $ARGUMENTS
-   |
-   +-- "list" or empty → Run: bd ready
-   |
-   +-- "status" → Show spec status + beads status
-   |
-   +-- Looks like issue ID (e.g., task-001) → Load issue, start spec
-   |
-   +-- Text description → Create issue + start spec
-       |
-       +-- Has --quick → Quick mode (auto-generate, execute)
-       +-- No --quick → Normal mode (interactive phases)
+/beans "Add feature X"
+         │
+         ▼
+    Create Issue (bd create)
+         │
+         ▼
+    Research Codebase
+         │
+         ▼
+    Generate Plan (requirements → design → tasks)
+         │
+         ▼
+    Execute Tasks (with quality checks)
+         │
+         ▼
+    Land (commit, push, close issue)
 ```
 
 ## Implementation
 
-### Step 1: Parse Arguments
+When invoked, determine the action:
 
-Extract from `$ARGUMENTS`:
-- **command**: list, status, or goal/issue-id
-- **--quick**: Enable quick mode
-- **--fresh**: Force new spec if exists
-
-### Step 2: Route to Handler
-
-```javascript
-if (args === "" || args === "list") {
-  // Run bd ready
-  exec("bd ready");
-}
-else if (args === "status") {
-  // Show combined status
-  exec("bd list --status in_progress");
-  exec("cat ./specs/.current-spec 2>/dev/null");
-}
-else if (args.match(/^[a-z]+-\d+$/i)) {
-  // Issue ID - load and start spec
-  const issue = exec(`bd show ${args} --json`);
-  startSpec(issue.title, issue.id);
-}
-else {
-  // Goal description - create issue and start spec
-  const goal = args.replace(/--quick|--fresh/g, '').trim();
-  const issueId = exec(`bd create "${goal}" -t feature`);
-  startSpec(goal, issueId, args.includes('--quick'));
-}
-```
-
-### Step 3: Start Spec Flow
-
-For new specs, delegate to `/ralph:start`:
-
-```
-Task: Invoke /ralph:start with spec name and goal
-Arguments: $specName "$goal" [--quick if quick mode]
-```
-
-This delegates to the ralph-specum workflow which handles:
-- Research (research-analyst agent)
-- Requirements (product-manager agent)
-- Design (architect-reviewer agent)
-- Tasks (task-planner agent)
-- Execution (spec-executor agent)
-
-### Step 4: Track in Beads
-
-After spec creation, update beads issue:
+### List Issues (no args or "list")
 ```bash
-bd update $issueId --status in_progress
-bd update $issueId --notes "Spec: ./specs/$specName/"
+bd ready
 ```
 
-After completion:
+### Show Status
 ```bash
-bd close $issueId --reason "Implemented via BEANS"
-bd sync
+bd list --status in_progress
+cat ./specs/.current-spec 2>/dev/null
 ```
 
-## Subcommands
+### New Feature (quoted description)
+1. Create beads issue: `bd create "$description" -t feature`
+2. Extract issue ID from output
+3. Create spec directory: `./specs/<name>/`
+4. Delegate to research-analyst agent
+5. After research → delegate to product-manager
+6. After requirements → delegate to architect-reviewer  
+7. After design → delegate to task-planner
+8. After tasks → delegate to spec-executor
+9. On completion → `bd close <id>` + `bd sync` + `git push`
 
-These map to underlying commands:
+### Existing Issue (issue-id pattern)
+1. Load issue: `bd show <id>`
+2. Check for existing spec in `./specs/`
+3. Resume from current phase or start fresh
 
-| Beans Command | Maps To |
-|---------------|---------|
-| `/beans` | `bd ready` |
-| `/beans list` | `bd ready` |
-| `/beans status` | `bd list` + spec status |
-| `/beans:create` | `bd create` |
-| `/beans:show <id>` | `bd show <id>` |
-| `/beans:research` | `/ralph:research` |
-| `/beans:requirements` | `/ralph:requirements` |
-| `/beans:design` | `/ralph:design` |
-| `/beans:tasks` | `/ralph:tasks` |
-| `/beans:implement` | `/ralph:implement` |
-| `/beans:land` | `bd sync && git push` |
-
-## Critical Rules
-
-1. **Delegation**: ALWAYS delegate work to subagents, never implement directly
-2. **Stop After Phase**: In normal mode, stop after each subagent completes
-3. **Land the Plane**: Always `bd sync && git push` before ending session
-
-## Example Flow
-
-```bash
-User: /beans "Add user authentication with JWT"
-
-BEANS:
-1. Creates beads issue: task-042 "Add user authentication with JWT"
-2. Creates spec directory: ./specs/add-user-auth/
-3. Invokes research-analyst → research.md
-   "Research complete. Run /beans:requirements to continue."
-
-User: /beans:requirements
-
-BEANS:
-4. Invokes product-manager → requirements.md
-   "Requirements complete. Run /beans:design to continue."
-
-... (continues through phases) ...
-
-User: /beans:implement
-
-BEANS:
-8. Invokes spec-executor for each task
-9. On completion: bd close task-042, bd sync, git push
-   "Feature complete! PR ready for review."
-```
+### Quick Mode (--quick flag)
+Skip interactive review between phases. Auto-generate all artifacts and start execution immediately.
