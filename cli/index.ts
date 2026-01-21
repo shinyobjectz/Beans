@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -166,12 +166,41 @@ async function cmdInit() {
     return;
   }
   
-  // Copy agents
+  // Copy core agents from plugin
   info("Installing agents...");
   const agentsSrc = join(pluginSource, "agents");
   if (existsSync(agentsSrc)) {
     await $`cp -r ${agentsSrc}/* ${join(cwd, ".claude/agents/")}`.nothrow();
-    success("Agents installed");
+  }
+  
+  // Install essential subagents from catalog
+  const beansHome = join(homedir(), ".beans");
+  const subagentsSrc = join(beansHome, "package/subagents/categories");
+  const agentsDest = join(cwd, ".claude/agents");
+  
+  // Core agents every project should have
+  const coreAgents = [
+    "04-quality-security/code-reviewer.md",
+    "04-quality-security/debugger.md", 
+    "10-research-analysis/research-analyst.md",
+    "06-developer-experience/refactoring-specialist.md",
+    "09-meta-orchestration/workflow-orchestrator.md",
+  ];
+  
+  if (existsSync(subagentsSrc)) {
+    let installed = 0;
+    for (const agent of coreAgents) {
+      const src = join(subagentsSrc, agent);
+      const dest = join(agentsDest, agent.split("/").pop()!);
+      if (existsSync(src) && !existsSync(dest)) {
+        await $`cp ${src} ${dest}`.nothrow();
+        installed++;
+      }
+    }
+    success(`Agents installed (${installed} core + plugin agents)`);
+  } else {
+    success("Plugin agents installed");
+    info("Run 'beans init' again after clone to get subagent catalog");
   }
   
   // Create commands symlinks (Claude Code discovers commands here)
@@ -179,8 +208,8 @@ async function cmdInit() {
   const commandsDir = join(cwd, ".claude/commands");
   mkdirSync(commandsDir, { recursive: true });
   
-  // Register only the clean BEANS commands (not all 44 underlying commands)
-  const beansCommands = ["beans.md", "beans-status.md", "beans-land.md"];
+  // Register the BEANS commands
+  const beansCommands = ["beans.md", "beans-status.md", "beans-land.md", "beans-agents.md"];
   for (const cmd of beansCommands) {
     const src = join(pluginSource, "commands", cmd);
     if (existsSync(src)) {
@@ -200,7 +229,20 @@ async function cmdInit() {
   if (existsSync(settingsSrc) && !existsSync(settingsDest)) {
     await $`cp ${settingsSrc} ${settingsDest}`.nothrow();
   }
-  success("Commands registered (3 BEANS commands)");
+  success("Commands registered (4 BEANS commands)");
+  
+  // Initialize beads issue tracker (uses .beans directory now)
+  info("Initializing issue tracker...");
+  try {
+    const bdResult = await $`bd init`.nothrow();
+    if (bdResult.exitCode === 0) {
+      success("Issue tracker initialized (.beans/)");
+    } else {
+      warn("bd init failed - run 'bd init' manually or install bd CLI");
+    }
+  } catch {
+    warn("bd command not found - install beads CLI for issue tracking");
+  }
   
   // Track installation
   config.installed_at = config.installed_at || [];
@@ -220,9 +262,10 @@ async function cmdInit() {
   
   log(`\n${c.green}${c.bold}✅ BEANS initialized!${c.reset}\n`);
   log("Next steps:");
-  log(`  ${c.cyan}beans doctor${c.reset}     # Verify setup`);
-  log(`  ${c.cyan}beans config${c.reset}     # Configure API keys`);
-  log(`  ${c.cyan}/beans${c.reset}           # In Claude Code: start building`);
+  log(`  ${c.cyan}beans doctor${c.reset}       # Verify setup`);
+  log(`  ${c.cyan}beans config${c.reset}       # Configure API keys`);
+  log(`  ${c.cyan}/beans${c.reset}             # In Claude Code: start building`);
+  log(`  ${c.cyan}/beans:agents${c.reset}      # Browse 127+ specialized subagents`);
   log("");
 }
 
@@ -414,18 +457,45 @@ async function cmdDoctor(args: string[]) {
     
     // Count components
     const commands = join(pluginPath, "commands");
-    const agents = join(pluginPath, "agents");
     if (existsSync(commands)) {
       const cmdCount = (await $`ls ${commands}/*.md 2>/dev/null`.text().catch(() => "")).split("\n").filter(Boolean).length;
-      log(`  Commands: ${cmdCount} (/beans, /beans:status, /beans:land)`);
-    }
-    if (existsSync(agents)) {
-      const agentCount = (await $`ls ${agents}`.text()).split("\n").filter(Boolean).length;
-      log(`  Agents: ${agentCount} subagents`);
+      log(`  Commands: ${cmdCount} (/beans, /beans:status, /beans:land, /beans:agents)`);
     }
   } else {
     error("Plugin not installed");
     issues++;
+  }
+  
+  // Check installed subagents
+  log(`\n${c.bold}Subagents${c.reset}`);
+  const projectAgents = join(cwd, ".claude/agents");
+  const globalAgents = join(homedir(), ".claude/agents");
+  const catalogDir = join(homedir(), ".beans/package/subagents/categories");
+  
+  let projectCount = 0;
+  let globalCount = 0;
+  
+  if (existsSync(projectAgents)) {
+    projectCount = (await $`ls ${projectAgents}/*.md 2>/dev/null`.text().catch(() => "")).split("\n").filter(Boolean).length;
+  }
+  if (existsSync(globalAgents)) {
+    globalCount = (await $`ls ${globalAgents}/*.md 2>/dev/null`.text().catch(() => "")).split("\n").filter(Boolean).length;
+  }
+  
+  if (projectCount > 0) {
+    success(`Project agents: ${projectCount} (.claude/agents/)`);
+  } else {
+    warn("No project agents installed");
+  }
+  if (globalCount > 0) {
+    success(`Global agents: ${globalCount} (~/.claude/agents/)`);
+  }
+  
+  if (existsSync(catalogDir)) {
+    const catalogCount = (await $`find ${catalogDir} -name "*.md" -not -name "README.md" | wc -l`.text()).trim();
+    log(`  Catalog: ${catalogCount} available (use /beans:agents to browse)`);
+  } else {
+    info("  Catalog: not installed (run 'beans init' to get 127+ agents)");
   }
   
   log("");
