@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.0.5";
+const VERSION = "2.1.2";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -193,6 +193,13 @@ async function cmdInit() {
   if (existsSync(claudeMd)) {
     await $`ln -sf ${claudeMd} ${join(cwd, ".claude/CLAUDE.md")}`.nothrow();
   }
+  
+  // Copy settings.json if not exists
+  const settingsSrc = join(pluginSource, "settings.json");
+  const settingsDest = join(cwd, ".claude/settings.json");
+  if (existsSync(settingsSrc) && !existsSync(settingsDest)) {
+    await $`cp ${settingsSrc} ${settingsDest}`.nothrow();
+  }
   success("Commands registered (3 BEANS commands)");
   
   // Track installation
@@ -345,15 +352,12 @@ async function cmdDoctor() {
     const commands = join(pluginPath, "commands");
     const agents = join(pluginPath, "agents");
     if (existsSync(commands)) {
-      const bdCount = existsSync(join(commands, "bd")) ? 
-        (await $`ls ${join(commands, "bd")}`.text()).split("\n").filter(Boolean).length : 0;
-      const ralphCount = existsSync(join(commands, "ralph")) ?
-        (await $`ls ${join(commands, "ralph")}`.text()).split("\n").filter(Boolean).length : 0;
-      log(`  Commands: ${bdCount} bd, ${ralphCount} ralph`);
+      const cmdCount = (await $`ls ${commands}/*.md 2>/dev/null`.text().catch(() => "")).split("\n").filter(Boolean).length;
+      log(`  Commands: ${cmdCount} (/beans, /beans:status, /beans:land)`);
     }
     if (existsSync(agents)) {
       const agentCount = (await $`ls ${agents}`.text()).split("\n").filter(Boolean).length;
-      log(`  Agents: ${agentCount}`);
+      log(`  Agents: ${agentCount} subagents`);
     }
   } else {
     error("Plugin not installed");
@@ -388,9 +392,9 @@ ${c.bold}Commands:${c.reset}
 ${c.bold}In Claude Code:${c.reset}
   ${c.cyan}/beans${c.reset}                    List ready issues
   ${c.cyan}/beans "Add feature"${c.reset}      Full autonomous flow
-  ${c.cyan}/beans task-001${c.reset}           Build existing issue
-  ${c.cyan}/bd:create "Bug"${c.reset}          Create beads issue
-  ${c.cyan}/ralph:start${c.reset}              Start spec workflow
+  ${c.cyan}/beans task-001${c.reset}           Continue existing issue
+  ${c.cyan}/beans:status${c.reset}             Check progress
+  ${c.cyan}/beans:land${c.reset}               Commit, push, close
 
 ${c.bold}Environment:${c.reset}
   Config stored at: ${c.dim}~/.beans/config.json${c.reset}
