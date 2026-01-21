@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.0.3";
+const VERSION = "2.0.4";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -173,6 +173,24 @@ async function cmdInit() {
     await $`cp -r ${agentsSrc}/* ${join(cwd, ".claude/agents/")}`.nothrow();
     success("Agents installed");
   }
+  
+  // Create commands symlinks (Claude Code discovers commands here)
+  info("Registering commands...");
+  const commandsDir = join(cwd, ".claude/commands");
+  mkdirSync(commandsDir, { recursive: true });
+  
+  // Symlink main /beans command
+  const beansCmd = join(pluginSource, "commands/beans.md");
+  if (existsSync(beansCmd)) {
+    await $`ln -sf ${beansCmd} ${join(commandsDir, "beans.md")}`.nothrow();
+  }
+  
+  // Symlink CLAUDE.md for project docs
+  const claudeMd = join(pluginSource, "CLAUDE.md");
+  if (existsSync(claudeMd)) {
+    await $`ln -sf ${claudeMd} ${join(cwd, ".claude/CLAUDE.md")}`.nothrow();
+  }
+  success("Commands registered");
   
   // Track installation
   config.installed_at = config.installed_at || [];
