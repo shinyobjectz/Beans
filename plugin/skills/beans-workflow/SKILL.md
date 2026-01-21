@@ -1,77 +1,87 @@
 ---
 name: beans-workflow
 description: >
-  BEANS autonomous development workflow combining Beads (memory), 
-  Ralph Loop (iteration), and Valyu (research) for extended 
-  development horizons with persistent context.
-allowed-tools: "Read,Bash(bd:*,beans:*,git:*,npm:*,bun:*)"
-version: "1.0.0"
+  BEANS autonomous development: /beans "feature" → research → plan → build → land.
+  Combines Beads (memory), Ralph (iteration), Valyu (research), Code Intelligence.
+allowed-tools: "Read,Write,Bash,Grep,Glob,MCP(valyu:knowledge)"
+version: "2.0.0"
 author: "Project.Social"
 license: "MIT"
 ---
 
 # BEANS Workflow
 
-Autonomous development from prompt to PR.
+Single command autonomous development: `/beans "Add feature X"`
 
-## Core Components
+## The `/beans` Command
 
-| Component | Purpose | Package |
-|-----------|---------|---------|
-| **Beads** | Git-backed memory, issue tracking | `package/beads` |
-| **Ralph Loop** | Iterative execution until success | `package/smart-ralph` |
-| **Valyu** | Knowledge retrieval, research | `package/valyu` |
-
-## Workflow Phases
-
-### 1. Task Creation
 ```bash
-bd create "Feature description" -t feature
-# Or via /beans "Feature description"
+/beans                         # List ready issues
+/beans "Add OAuth2 login"      # Full flow: issue → research → plan → build
+/beans task-001                # Continue existing issue
+/beans:status                  # Show progress
+/beans:land                    # Commit, push, close
 ```
 
-### 2. Research (Valyu)
-- Auto-generates queries from task keywords
-- Searches academic, web, financial sources
-- Caches results for 7 days
-- Injects context into prompts
-
-### 3. Iteration (Ralph Loop)
-```
-while (iteration < max && !success):
-  1. Read task context from Beads
-  2. Fetch research from Valyu
-  3. Build prompt (context + tests + git)
-  4. Send to Claude
-  5. Run tests, check criteria
-  6. Commit changes
-  7. Update Beads
-```
-
-### 4. Completion
-- Success criteria met → Create PR, close issue
-- Max iterations → Human review needed
-
-## Success Criteria Syntax
+## What Happens
 
 ```
-all tests pass                    # Exit code 0
-coverage >= 85%                   # Threshold
-no linting errors                 # Zero violations
-all tests pass && coverage >= 85% # Compound
+/beans "Add feature"
+    │
+    ├─→ bd create (beads issue)
+    │
+    ├─→ research-analyst (Valyu MCP + ast-grep)
+    │         ↓
+    │    specs/<id>/research.md
+    │
+    ├─→ product-manager → requirements.md
+    ├─→ architect-reviewer → design.md  
+    ├─→ task-planner → tasks.md
+    │
+    ├─→ spec-executor (loops until done)
+    │         ↓
+    │    Code changes
+    │
+    └─→ bd close + bd sync + git push
 ```
+
+## Subagents
+
+| Agent | Phase | Tools |
+|-------|-------|-------|
+| research-analyst | Research | Valyu MCP, ast-grep, repomix |
+| product-manager | Requirements | Read, Grep |
+| architect-reviewer | Design | Read, Grep |
+| task-planner | Tasks | Read, Grep |
+| spec-executor | Build | Read, Write, Bash |
+| code-reviewer | Quality | ReadLints, Grep |
+| test-engineer | Testing | Bash |
+
+Invoke via Task tool with `subagent_type: <agent-name>`.
+
+## Communication Style
+
+- Be extremely concise. Fragments over sentences.
+- Tables over paragraphs. Bullets over prose.
+- Skip filler: "It should be noted that...", "In order to..."
+
+## Reality Verification
+
+Never assume success. Always verify:
+- Run commands, check exit codes
+- Read files after writing
+- Run tests after changes
+- Check lints before commit
 
 ## Session Protocol
 
-**Always land the plane:**
+**Always land the plane at session end:**
 ```bash
-/beans:land
-# Or: bd sync && git push
+/beans:land  # Or: bd sync && git push
 ```
 
-## Resources
+## Related Skills
 
-- [BEANS-Integration-Plan.md](../../BEANS-Integration-Plan.md) - Full architecture
-- [package/beads](../../package/beads) - Beads CLI
-- [package/smart-ralph](../../package/smart-ralph) - Ralph plugins
-- [package/valyu](../../package/valyu) - Valyu MCP
+- [beads/](../beads/) - Advanced issue tracking (dependencies, molecules, worktrees)
+- [ralph/](../ralph/) - Advanced iteration (PRD format, exit conditions)
+- [beans-research/](../beans-research/) - Valyu MCP details

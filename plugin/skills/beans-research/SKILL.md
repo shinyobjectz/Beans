@@ -1,11 +1,11 @@
 ---
-name: valyu-research
+name: beans-research
 description: >
   Knowledge retrieval via Valyu MCP. Academic, web, and financial 
   search to enrich development context with real-time research.
-allowed-tools: "Read,MCP(valyu:*)"
+allowed-tools: "Read,MCP(valyu:knowledge,valyu:feedback)"
 version: "1.0.0"
-author: "Valyu AI"
+author: "BEANS / Valyu AI"
 license: "MIT"
 ---
 
