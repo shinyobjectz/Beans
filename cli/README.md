@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/image.png" alt="BEANS Banner" width="100%">
+  <img src="https://github.com/shinyobjectz/Beans/raw/4f461bfaccbe7dc324c3e9a2bc2b053cb6318c68/static/image.png" alt="BEANS Banner" width="100%">
 </p>
 
 # BEANS
