@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.3.4";
+const VERSION = "2.3.5";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -120,23 +120,30 @@ async function cmdInit() {
     info("Setting up global BEANS repo (~/.beans)...");
     try {
       // Backup config if exists
-      const configBackup = existsSync(join(beansHome, "config.json")) 
-        ? JSON.parse(readFileSync(join(beansHome, "config.json"), "utf-8")) 
-        : null;
-      
-      // Clone fresh (removes any partial state)
-      if (existsSync(beansHome)) {
-        await $`rm -rf ${beansHome}`.quiet();
+      let configBackup: any = null;
+      const configPath = join(beansHome, "config.json");
+      if (existsSync(configPath)) {
+        configBackup = JSON.parse(readFileSync(configPath, "utf-8"));
       }
-      await $`git clone https://github.com/shinyobjectz/beans.git ${beansHome}`.quiet();
+      
+      // Clone to temp, then move (avoids rm -rf issues with locks)
+      const tmpDir = `/tmp/beans-clone-${Date.now()}`;
+      await $`git clone --depth 1 https://github.com/shinyobjectz/beans.git ${tmpDir}`;
+      
+      // Remove old and move new
+      if (existsSync(beansHome)) {
+        await $`rm -rf ${beansHome}`;
+      }
+      await $`mv ${tmpDir} ${beansHome}`;
       
       // Restore config
       if (configBackup) {
-        writeFileSync(join(beansHome, "config.json"), JSON.stringify(configBackup, null, 2));
+        writeFileSync(configPath, JSON.stringify(configBackup, null, 2));
       }
-      success("BEANS repo cloned to ~/.beans (subagent catalog available)");
+      success("BEANS repo cloned to ~/.beans (127+ subagents available)");
     } catch (e) {
       warn(`Could not clone global BEANS repo: ${e}`);
+      info("Run manually: git clone https://github.com/shinyobjectz/beans.git ~/.beans");
     }
   }
   
