@@ -1,0 +1,43 @@
+name: Publish CLI to npm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/package.json'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Check version change
+        id: version
+        run: |
+          CURRENT=$(npm view @morebeans/cli version 2>/dev/null || echo "0.0.0")
+          NEW=$(jq -r .version cli/package.json)
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+          if [ "$CURRENT" != "$NEW" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Publish to npm
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          cd cli
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+          npm publish --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Skip publish
+        if: steps.version.outputs.changed == 'false'
+        run: echo "Version unchanged (${{ steps.version.outputs.current }}), skipping publish"
