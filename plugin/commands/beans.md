@@ -47,23 +47,35 @@ bd comment "$ISSUE_ID" "✓ $PHASE complete. Next: $NEXT_STEP"
 <mandatory>
 Research happens automatically in these scenarios:
 
-1. **New Feature** (Step 2): WebSearch + codebase analysis for best practices
-2. **Troubleshooting**: When you hit an error or unexpected behavior:
-   ```bash
-   # On error, research before fixing
-   bd comment "$ISSUE_ID" "## Error Encountered
-   $ERROR_MESSAGE"
-   
-   # Research the error
-   WebSearch("$ERROR_TYPE solution $FRAMEWORK")
-   Grep("similar.*error" codebase)
-   
-   # Store findings, then fix
-   ```
+1. **New Feature** (Step 2): Valyu + codebase analysis for best practices
+2. **Troubleshooting**: When you hit an error or unexpected behavior
 3. **Blocked Tasks**: If a task fails verification, research alternatives
 4. **Unknown Patterns**: If codebase doesn't have existing pattern to follow
 
-**Always store research findings** - use `research_store` or Valyu's `knowledge` tool with `issue_id`.
+**Always use structured research:**
+
+```
+# Valyu search (auto-stores with issue_id)
+knowledge({
+  query: "your search query",
+  search_type: "all",
+  issue_id: "$ISSUE_ID"
+})
+
+# Manual storage for WebSearch/codebase findings
+research_store({
+  issue_id: "$ISSUE_ID",
+  source: "web" | "codebase",
+  title: "...",
+  content: "...",
+  relevance: 0.0-1.0
+})
+
+# Query stored research
+research_query({ issue_id: "$ISSUE_ID" })
+```
+
+**Benefits:** Findings are queryable, referenceable by ID, persist across sessions.
 </mandatory>
 
 ## Philosophy: Beads as Single Source of Truth
@@ -277,7 +289,7 @@ bd comment "$ISSUE_ID" "✓ Completed: $TASK_ID"
 
 ### On Error/Failure
 
-If a task fails or hits unexpected errors:
+If a task fails or hits unexpected errors, use **structured research**:
 
 ```bash
 # 1. Log the error to beads
@@ -285,17 +297,36 @@ bd comment "$ISSUE_ID" "## ❌ Error in $TASK_ID
 \`\`\`
 $ERROR_OUTPUT
 \`\`\`"
+```
 
-# 2. Research the error
-WebSearch("$ERROR_MESSAGE $FRAMEWORK solution")
+```
+# 2. Research via Valyu (auto-stores with issue_id)
+knowledge({
+  query: "$ERROR_MESSAGE solution $FRAMEWORK",
+  search_type: "all",
+  issue_id: "$ISSUE_ID"  // Links findings to issue
+})
 
-# 3. Check codebase for similar patterns/fixes
+# 3. Check codebase, store findings
 Grep("$ERROR_TYPE" .)
+research_store({
+  issue_id: "$ISSUE_ID",
+  query: "codebase error patterns",
+  source: "codebase",
+  title: "Similar error handling in codebase",
+  content: "[grep results and analysis]",
+  relevance: 0.9
+})
 
-# 4. Store findings and retry
+# 4. Query all research for this issue
+research_query({ issue_id: "$ISSUE_ID" })
+```
+
+```bash
+# 5. Summarize and retry
 bd comment "$TASK_ID" "## Troubleshooting
-Researched: [findings]
-Fix approach: [solution]"
+Research IDs: res-abc123, res-def456
+Fix approach: [based on findings]"
 ```
 
 Continue until all tasks closed.
