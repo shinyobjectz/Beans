@@ -1,0 +1,19 @@
+{
+  "name": "@beans/cli",
+  "version": "2.0.0",
+  "description": "CLI for setting up and configuring BEANS",
+  "type": "module",
+  "bin": {
+    "beans": "./index.ts"
+  },
+  "scripts": {
+    "start": "bun run index.ts"
+  },
+  "keywords": ["beans", "claude-code", "cli", "setup"],
+  "author": "Project.Social",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shinyobjectz/beans.git"
+  }
+}

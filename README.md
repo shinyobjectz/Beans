@@ -62,18 +62,39 @@ This single command:
 ### Installation
 
 ```bash
-# Clone with submodules
-git clone --recursive https://github.com/shinyobjectz/horizoncanvas.git beans
-cd beans
+# Clone BEANS
+git clone https://github.com/shinyobjectz/beans.git ~/.beans
 
-# Install plugin to your project
-./plugin/scripts/install.sh /path/to/your/project
+# Link CLI globally
+cd ~/.beans/cli && bun link
 
-# Run setup (installs tools)
-./plugin/scripts/beans-setup.sh
+# Initialize in your project
+cd /your/project
+beans init
+beans config --valyu    # Set Valyu API key (optional)
+beans doctor            # Verify setup
+```
 
-# Verify installation
-./plugin/scripts/verify-beans-setup.sh
+### CLI Commands
+
+```bash
+beans init              # Initialize BEANS in current project
+beans config            # Configure API keys interactively
+beans config --valyu    # Set Valyu API key
+beans config --github   # Set GitHub token  
+beans config --show     # Show current configuration
+beans doctor            # Check installation status
+beans help              # Show help
+```
+
+### Configuration
+
+API keys stored in `~/.beans/config.json`:
+```json
+{
+  "valyu_api_key": "val_...",
+  "github_token": "ghp_..."
+}
 ```
 
 ### Usage
