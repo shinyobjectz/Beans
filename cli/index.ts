@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.0.0";
+const VERSION = "2.0.1";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -115,6 +115,7 @@ async function cmdInit() {
   // Find plugin source
   const pluginSources = [
     join(cwd, "submodules/beans/plugin"),
+    join(cwd, "plugin"),  // If running from beans repo itself
     join(homedir(), ".beans/plugin"),
     join(import.meta.dir, "../plugin"),
   ];
@@ -127,11 +128,30 @@ async function cmdInit() {
     }
   }
   
+  // Auto-clone if not found
   if (!pluginSource) {
-    error("Could not find BEANS plugin source");
-    info("Clone the beans repo first:");
-    log(`  git clone https://github.com/shinyobjectz/beans.git ~/.beans`);
-    return;
+    info("BEANS plugin not found locally, cloning from GitHub...");
+    const beansHome = join(homedir(), ".beans");
+    
+    try {
+      if (existsSync(beansHome)) {
+        info("Updating existing ~/.beans...");
+        await $`cd ${beansHome} && git pull`.quiet();
+      } else {
+        await $`git clone https://github.com/shinyobjectz/beans.git ${beansHome}`;
+      }
+      pluginSource = join(beansHome, "plugin");
+      
+      if (!existsSync(pluginSource)) {
+        error("Clone succeeded but plugin directory not found");
+        return;
+      }
+      success("BEANS repo cloned to ~/.beans");
+    } catch (e) {
+      error(`Failed to clone BEANS repo: ${e}`);
+      info("Try manually: git clone https://github.com/shinyobjectz/beans.git ~/.beans");
+      return;
+    }
   }
   
   // Symlink plugin
