@@ -7,15 +7,16 @@
  *   bunx beans config            # Configure API keys interactively
  *   bunx beans config --valyu    # Set Valyu API key
  *   bunx beans doctor            # Check installation status
- *   bunx beans upgrade           # Update to latest version
+ *   bunx beans research          # Manage research database
  */
 
 import { $ } from "bun";
+import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.4.0";
+const VERSION = "2.5.0";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -523,6 +524,164 @@ async function cmdDoctor(args: string[]) {
   log("");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESEARCH DATABASE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function getResearchDb() {
+  const dbPath = join(process.cwd(), ".beans/research.db");
+  if (!existsSync(join(process.cwd(), ".beans"))) {
+    mkdirSync(join(process.cwd(), ".beans"), { recursive: true });
+  }
+  const db = new Database(dbPath);
+  
+  // Init schema
+  db.run(`
+    CREATE TABLE IF NOT EXISTS research (
+      id TEXT PRIMARY KEY,
+      issue_id TEXT,
+      query TEXT NOT NULL,
+      source TEXT NOT NULL CHECK(source IN ('valyu', 'web', 'codebase')),
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      url TEXT,
+      relevance REAL DEFAULT 0.5,
+      metadata TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(issue_id, url, title)
+    )
+  `);
+  
+  db.run(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS research_fts USING fts5(
+      title, content, query, content='research', content_rowid='rowid'
+    )
+  `);
+  
+  return db;
+}
+
+async function cmdResearch(args: string[]) {
+  const subCmd = args[0];
+  const db = getResearchDb();
+  
+  if (subCmd === "list" || !subCmd) {
+    const issueId = args.find(a => a.startsWith("--issue="))?.split("=")[1];
+    const source = args.find(a => a.startsWith("--source="))?.split("=")[1];
+    const limit = parseInt(args.find(a => a.startsWith("--limit="))?.split("=")[1] || "20");
+    
+    let sql = `SELECT id, issue_id, source, title, substr(content, 1, 100) as preview, relevance, created_at FROM research WHERE 1=1`;
+    const params: any[] = [];
+    
+    if (issueId) { sql += ` AND issue_id = ?`; params.push(issueId); }
+    if (source) { sql += ` AND source = ?`; params.push(source); }
+    sql += ` ORDER BY created_at DESC LIMIT ?`;
+    params.push(limit);
+    
+    const rows = db.query(sql).all(...params) as any[];
+    
+    log(`\n${c.bold}Research Findings${c.reset} (${rows.length})\n`);
+    
+    if (rows.length === 0) {
+      info("No research stored yet. Use Valyu MCP or /beans:research to gather findings.");
+      return;
+    }
+    
+    for (const row of rows) {
+      const srcColor = row.source === "valyu" ? c.blue : row.source === "web" ? c.green : c.yellow;
+      log(`${c.dim}${row.id}${c.reset} ${srcColor}[${row.source}]${c.reset} ${row.title}`);
+      if (row.issue_id) log(`  ${c.dim}Issue: ${row.issue_id}${c.reset}`);
+      log(`  ${c.dim}${row.preview}...${c.reset}`);
+      log("");
+    }
+    return;
+  }
+  
+  if (subCmd === "search") {
+    const query = args.slice(1).join(" ");
+    if (!query) {
+      error("Usage: beans research search <query>");
+      return;
+    }
+    
+    const rows = db.query(`
+      SELECT r.id, r.issue_id, r.source, r.title, substr(r.content, 1, 200) as preview
+      FROM research r
+      JOIN research_fts fts ON r.rowid = fts.rowid
+      WHERE research_fts MATCH ?
+      ORDER BY rank LIMIT 20
+    `).all(query) as any[];
+    
+    log(`\n${c.bold}Search: "${query}"${c.reset} (${rows.length} results)\n`);
+    
+    for (const row of rows) {
+      const srcColor = row.source === "valyu" ? c.blue : row.source === "web" ? c.green : c.yellow;
+      log(`${c.dim}${row.id}${c.reset} ${srcColor}[${row.source}]${c.reset} ${row.title}`);
+      log(`  ${c.dim}${row.preview}...${c.reset}\n`);
+    }
+    return;
+  }
+  
+  if (subCmd === "show") {
+    const id = args[1];
+    if (!id) {
+      error("Usage: beans research show <id>");
+      return;
+    }
+    
+    const row = db.query(`SELECT * FROM research WHERE id = ?`).get(id) as any;
+    if (!row) {
+      error(`Research ${id} not found`);
+      return;
+    }
+    
+    log(`\n${c.bold}${row.title}${c.reset}`);
+    log(`${c.dim}ID: ${row.id} | Source: ${row.source} | Relevance: ${row.relevance}${c.reset}`);
+    if (row.issue_id) log(`${c.dim}Issue: ${row.issue_id}${c.reset}`);
+    if (row.url) log(`${c.dim}URL: ${row.url}${c.reset}`);
+    log(`\n${row.content}\n`);
+    return;
+  }
+  
+  if (subCmd === "for") {
+    const issueId = args[1];
+    if (!issueId) {
+      error("Usage: beans research for <issue-id>");
+      return;
+    }
+    
+    const rows = db.query(`
+      SELECT id, source, title, substr(content, 1, 100) as preview, relevance
+      FROM research WHERE issue_id = ? ORDER BY relevance DESC
+    `).all(issueId) as any[];
+    
+    log(`\n${c.bold}Research for ${issueId}${c.reset} (${rows.length} findings)\n`);
+    
+    for (const row of rows) {
+      log(`${c.dim}${row.id}${c.reset} [${row.source}] ${row.title} (${(row.relevance * 100).toFixed(0)}%)`);
+    }
+    log("");
+    return;
+  }
+  
+  // Default help
+  log(`
+${c.bold}beans research${c.reset} - Manage research database
+
+${c.bold}Commands:${c.reset}
+  ${c.cyan}list${c.reset}                    List all research (--issue=X, --source=valyu|web|codebase)
+  ${c.cyan}search <query>${c.reset}          Full-text search
+  ${c.cyan}show <id>${c.reset}               Show full research entry
+  ${c.cyan}for <issue-id>${c.reset}          List research linked to an issue
+
+${c.bold}Storage:${c.reset}
+  Database at: ${c.dim}.beans/research.db${c.reset}
+  
+Research is auto-stored by Valyu MCP when you pass issue_id.
+Use research_store tool to manually add web/codebase findings.
+`);
+}
+
 async function cmdHelp() {
   log(`
 ${c.bold}${c.blue}🫘 BEANS CLI v${VERSION}${c.reset}
@@ -532,24 +691,27 @@ ${c.bold}Usage:${c.reset}
 
 ${c.bold}Commands:${c.reset}
   ${c.cyan}init${c.reset}              Initialize BEANS in current project
-  ${c.cyan}config${c.reset}            Configure API keys interactively
-  ${c.cyan}config --valyu${c.reset}    Set Valyu API key
-  ${c.cyan}config --github${c.reset}   Set GitHub token
-  ${c.cyan}config --show${c.reset}     Show current configuration
+  ${c.cyan}config${c.reset}            Configure API keys
   ${c.cyan}doctor${c.reset}            Check installation status
-  ${c.cyan}doctor --fix${c.reset}      Auto-fix issues (install tools, run bd doctor)
-  ${c.cyan}help${c.reset}              Show this help message
+  ${c.cyan}research${c.reset}          Manage research database
+  ${c.cyan}help${c.reset}              Show this help
+
+${c.bold}Research:${c.reset}
+  ${c.cyan}research list${c.reset}     List stored research
+  ${c.cyan}research search${c.reset}   Full-text search findings
+  ${c.cyan}research for${c.reset}      Get research for an issue
+  ${c.cyan}research show${c.reset}     Show full entry
 
 ${c.bold}In Claude Code:${c.reset}
-  ${c.cyan}/beans${c.reset}                    List ready issues
-  ${c.cyan}/beans "Add feature"${c.reset}      Full autonomous flow
-  ${c.cyan}/beans task-001${c.reset}           Continue existing issue
-  ${c.cyan}/beans:status${c.reset}             Check progress
-  ${c.cyan}/beans:land${c.reset}               Commit, push, close
+  ${c.cyan}/beans "Add feature"${c.reset}  Full autonomous flow
+  ${c.cyan}/beans:status${c.reset}         Check progress
+  ${c.cyan}/beans:land${c.reset}           Commit, push, close
 
-${c.bold}Environment:${c.reset}
-  Config stored at: ${c.dim}~/.beans/config.json${c.reset}
-  
+${c.bold}Data Model:${c.reset}
+  Issues → ${c.dim}.beans/ (beads tracker)${c.reset}
+  Research → ${c.dim}.beans/research.db (SQLite)${c.reset}
+  Config → ${c.dim}~/.beans/config.json${c.reset}
+
 ${c.bold}More info:${c.reset}
   https://github.com/shinyobjectz/beans
 `);
@@ -570,6 +732,9 @@ switch (command) {
     break;
   case "doctor":
     await cmdDoctor(args);
+    break;
+  case "research":
+    await cmdResearch(args);
     break;
   case "help":
   case "--help":
