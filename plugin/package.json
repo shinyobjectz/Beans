@@ -1,0 +1,18 @@
+{
+  "name": "@beans/claude-plugin",
+  "version": "1.0.0",
+  "description": "BEANS Claude Code plugin - Beads + Ralph Loop + Valyu",
+  "type": "module",
+  "main": "index.ts",
+  "bin": {
+    "beans-install": "./scripts/install.sh"
+  },
+  "scripts": {
+    "install": "./scripts/install.sh",
+    "link": "bun link && echo 'Linked @beans/claude-plugin'",
+    "postinstall": "echo 'Run: beans-install to set up Claude Code plugin'"
+  },
+  "keywords": ["beans", "beads", "ralph", "valyu", "claude-code", "plugin"],
+  "author": "Project.Social",
+  "license": "MIT"
+}

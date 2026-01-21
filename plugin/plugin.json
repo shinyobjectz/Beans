@@ -1,0 +1,37 @@
+{
+  "name": "beans",
+  "version": "1.0.0",
+  "description": "BEANS: Unified plugin combining Beads (memory) + Ralph Loop (iteration) + Valyu (research)",
+  "author": {
+    "name": "Project.Social"
+  },
+  "license": "MIT",
+  "keywords": ["beans", "beads", "ralph-loop", "valyu", "autonomous", "spec-driven"],
+  "repository": "https://github.com/project-social/beans",
+  "dependencies": {
+    "beads": "package/beads",
+    "smart-ralph": "package/smart-ralph"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "bd prime" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "bd prime" }
+        ]
+      }
+    ]
+  },
+  "commandPrefixes": {
+    "bd": "commands/bd",
+    "ralph": "commands/ralph"
+  }
+}
