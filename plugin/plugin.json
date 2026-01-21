@@ -1,37 +1,28 @@
 {
   "name": "beans",
   "version": "1.0.0",
-  "description": "BEANS: Unified plugin combining Beads (memory) + Ralph Loop (iteration) + Valyu (research)",
-  "author": {
-    "name": "Project.Social"
-  },
+  "description": "BEANS: Beads + Ralph + Valyu unified autonomous development",
+  "author": "Project.Social",
   "license": "MIT",
-  "keywords": ["beans", "beads", "ralph-loop", "valyu", "autonomous", "spec-driven"],
-  "repository": "https://github.com/project-social/beans",
-  "dependencies": {
-    "beads": "package/beads",
-    "smart-ralph": "package/smart-ralph"
+  "keywords": ["beans", "beads", "ralph", "valyu", "autonomous"],
+  "repository": "https://github.com/shinyobjectz/beans",
+  
+  "agents": {
+    "research-analyst": "agents/research-analyst.md",
+    "product-manager": "agents/product-manager.md",
+    "architect-reviewer": "agents/architect-reviewer.md",
+    "task-planner": "agents/task-planner.md",
+    "spec-executor": "agents/spec-executor.md",
+    "code-reviewer": "agents/code-reviewer.md",
+    "test-engineer": "agents/test-engineer.md",
+    "optimizer": "agents/optimizer.md",
+    "doc-generator": "agents/doc-generator.md"
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          { "type": "command", "command": "bd prime" }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          { "type": "command", "command": "bd prime" }
-        ]
-      }
-    ]
-  },
-  "commandPrefixes": {
-    "bd": "commands/bd",
-    "ralph": "commands/ralph"
+  
+  "agentModels": {
+    "research-analyst": "claude-sonnet-4-20250514",
+    "code-reviewer": "claude-3-5-haiku-latest",
+    "test-engineer": "claude-sonnet-4-20250514",
+    "doc-generator": "claude-3-5-haiku-latest"
   }
 }

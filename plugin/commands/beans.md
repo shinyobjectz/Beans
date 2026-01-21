@@ -72,15 +72,50 @@ cat ./specs/.current-spec 2>/dev/null
 ```
 
 ### New Feature (quoted description)
-1. Create beads issue: `bd create "$description" -t feature`
-2. Extract issue ID from output
-3. Create spec directory: `./specs/<name>/`
-4. Delegate to research-analyst agent
-5. After research → delegate to product-manager
-6. After requirements → delegate to architect-reviewer  
-7. After design → delegate to task-planner
-8. After tasks → delegate to spec-executor
-9. On completion → `bd close <id>` + `bd sync` + `git push`
+
+```bash
+# 1. Create beads issue
+ISSUE=$(bd create "$description" -t feature --json | jq -r '.id')
+mkdir -p ./specs/${ISSUE}
+
+# 2. Initialize state
+cat > ./specs/${ISSUE}/.beans-state.json << EOF
+{"issueId": "$ISSUE", "phase": "research", "description": "$description"}
+EOF
+```
+
+**3. Invoke research-analyst** (uses Valyu MCP + code intelligence):
+```
+Task: Research codebase and external sources for: $description
+
+Use valyu:knowledge MCP for external research.
+Use ast-grep/repomix for codebase analysis.
+Output: ./specs/${ISSUE}/research.md
+
+subagent_type: research-analyst
+```
+
+**4. Invoke product-manager** → requirements.md
+
+**5. Invoke architect-reviewer** → design.md
+
+**6. Invoke task-planner** → tasks.md
+
+**7. Invoke spec-executor** (iterates until complete):
+```
+Task: Execute tasks from ./specs/${ISSUE}/tasks.md
+
+Read each task, implement, verify with tests/lint.
+Mark complete in .beans-state.json.
+
+subagent_type: spec-executor
+```
+
+**8. Land:**
+```bash
+bd close $ISSUE --reason "Implemented"
+bd sync && git push
+```
 
 ### Existing Issue (issue-id pattern)
 1. Load issue: `bd show <id>`

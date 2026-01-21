@@ -48,22 +48,44 @@ Only 3 commands to remember:
                └── close issue
 ```
 
-## Subagents (Internal)
+## Subagents
 
-BEANS uses 13 specialized subagents internally:
+BEANS orchestrates 9 specialized agents via the **Task** tool:
 
-| Agent | Role |
-|-------|------|
-| research-analyst | Codebase analysis |
-| product-manager | Requirements |
-| architect-reviewer | Design |
-| task-planner | Task breakdown |
-| spec-executor | Implementation |
-| code-reviewer | Quality checks |
-| test-engineer | Test coverage |
-| optimizer | Fix issues |
-| doc-generator | Documentation |
-| integration-tester | E2E tests |
+| Agent | Phase | Tools |
+|-------|-------|-------|
+| research-analyst | Research | Valyu MCP, ast-grep, repomix |
+| product-manager | Requirements | Read, Grep |
+| architect-reviewer | Design | Read, Grep |
+| task-planner | Tasks | Read, Grep |
+| spec-executor | Build | Read, Write, Bash |
+| code-reviewer | Quality | ReadLints, Grep |
+| test-engineer | Testing | Bash (test commands) |
+| optimizer | Fix | Write, ReadLints |
+| doc-generator | Docs | Read, Write |
+
+### Invoking Subagents
+
+Subagents are invoked using Claude Code's Task tool:
+
+```
+Task: Research the codebase for implementing OAuth2 login
+
+Use valyu:knowledge for external docs.
+Use ast-grep to find auth patterns.
+Output to ./specs/task-001/research.md
+
+subagent_type: research-analyst
+```
+
+### Agent Routing
+
+| Agent | Model |
+|-------|-------|
+| research-analyst | claude-sonnet-4-20250514 |
+| code-reviewer | claude-3-5-haiku-latest |
+| doc-generator | claude-3-5-haiku-latest |
+| (others) | inherit from parent |
 
 ## Configuration
 
