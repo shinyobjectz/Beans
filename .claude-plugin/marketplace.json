@@ -1,0 +1,21 @@
+{
+  "name": "beans",
+  "owner": {
+    "name": "shinyobjectz",
+    "email": "shane@shinyobjectz.com"
+  },
+  "metadata": {
+    "description": "BEANS: Validation-first autonomous development framework with beads issue tracking",
+    "version": "2.2.0"
+  },
+  "plugins": [
+    {
+      "name": "beans",
+      "source": "./plugin",
+      "description": "Validation-first autonomous development with beads - includes /beans commands, ralph workflow orchestration, and research-driven PRDs",
+      "version": "2.2.0",
+      "category": "workflow",
+      "tags": ["autonomous", "validation", "beads", "ralph", "research", "prd", "workflow"]
+    }
+  ]
+}

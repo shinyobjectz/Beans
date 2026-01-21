@@ -1,0 +1,68 @@
+{
+  "name": "beans",
+  "version": "2.2.0",
+  "description": "BEANS: Validation-first autonomous development with beads",
+  "author": {
+    "name": "shinyobjectz",
+    "email": "shane@shinyobjectz.com"
+  },
+  "license": "MIT",
+  "keywords": ["beans", "beads", "ralph", "valyu", "autonomous", "validation", "workflow"],
+  "repository": "https://github.com/shinyobjectz/beans",
+  "homepage": "https://github.com/shinyobjectz/beans#readme",
+  
+  "commands": "../commands",
+  "agents": "../agents",
+  "skills": "../skills",
+  
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bd prime 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/stop-watcher.sh"
+          }
+        ]
+      }
+    ]
+  },
+  
+  "mcpServers": {
+    "valyu": {
+      "command": "npx",
+      "args": ["-y", "@valyu/mcp-server"],
+      "env": {
+        "VALYU_API_KEY": "${VALYU_API_KEY}"
+      }
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
+}
