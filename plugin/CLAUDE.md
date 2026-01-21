@@ -118,6 +118,23 @@ specs/                  # Spec artifacts
     └── tasks.md
 ```
 
+## Hooks
+
+BEANS registers a **Stop hook** that runs when Claude Code session ends:
+
+```
+hooks/
+├── hooks.json          # Hook configuration
+└── scripts/
+    └── stop-watcher.sh # Cleanup on session stop
+```
+
+**What the Stop hook does:**
+- Syncs beads state (`bd sync`)
+- Cleans up `.ralph-state.json` and `.beans-state.json`
+- Removes orphaned temp files
+- Clears old cache (>7 days)
+
 ## Under the Hood
 
 BEANS combines:
