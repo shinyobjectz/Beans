@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const VERSION = "2.1.2";
+const VERSION = "2.1.3";
 const BEANS_HOME = join(homedir(), ".beans");
 const BEANS_CONFIG = join(BEANS_HOME, "config.json");
 
@@ -283,22 +283,49 @@ async function cmdConfig(args: string[]) {
   log(`\nConfig stored at: ${c.dim}${BEANS_CONFIG}${c.reset}`);
 }
 
-async function cmdDoctor() {
-  log(`\n${c.bold}${c.blue}🩺 BEANS Doctor${c.reset}\n`);
+async function cmdDoctor(args: string[]) {
+  const fix = args.includes("--fix") || args.includes("-f");
+  
+  log(`\n${c.bold}${c.blue}🩺 BEANS Doctor${fix ? " (--fix)" : ""}${c.reset}\n`);
   
   const cwd = process.cwd();
   const config = loadConfig();
   let issues = 0;
+  let fixed = 0;
   
   // Check CLI tools
   log(`${c.bold}CLI Tools${c.reset}`);
-  const tools = ["bd", "ast-grep", "repomix"];
-  for (const tool of tools) {
+  const tools: Record<string, string> = {
+    "bd": "curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash",
+    "ast-grep": "npm install -g @ast-grep/cli",
+    "repomix": "npm install -g repomix",
+  };
+  
+  for (const [tool, installCmd] of Object.entries(tools)) {
     try {
       await $`which ${tool}`.quiet();
       success(tool);
     } catch {
-      warn(`${tool} not found (optional)`);
+      if (fix && tool !== "bd") {
+        info(`Installing ${tool}...`);
+        try {
+          await $`${installCmd.split(" ")[0]} ${installCmd.split(" ").slice(1)}`.quiet();
+          success(`${tool} installed`);
+          fixed++;
+        } catch (e) {
+          error(`Failed to install ${tool}: ${e}`);
+          issues++;
+        }
+      } else if (tool === "bd") {
+        error(`${tool} not found (required)`);
+        info(`  Install: ${installCmd}`);
+        issues++;
+      } else {
+        warn(`${tool} not found`);
+        if (fix) {
+          info(`  Install: ${installCmd}`);
+        }
+      }
     }
   }
   
@@ -309,15 +336,49 @@ async function cmdDoctor() {
     if (existsSync(join(cwd, dir))) {
       success(dir);
     } else {
-      error(dir);
-      issues++;
+      if (fix) {
+        info(`Running beans init to fix missing directories...`);
+        await cmdInit();
+        fixed++;
+        break;
+      } else {
+        error(dir);
+        issues++;
+      }
     }
   }
-  // Optional: .beads (created by bd init)
+  
+  // Check .beads (created by bd init)
   if (existsSync(join(cwd, ".beads"))) {
     success(".beads (beads issue tracker)");
+    
+    // Run bd doctor if --fix
+    if (fix) {
+      log(`\n${c.bold}Running bd doctor --fix...${c.reset}`);
+      try {
+        const result = await $`bd doctor --fix`.nothrow();
+        if (result.exitCode !== 0) {
+          warn("bd doctor reported issues (see output above)");
+        } else {
+          fixed++;
+        }
+      } catch {
+        warn("bd doctor failed");
+      }
+    }
   } else {
-    warn(".beads not initialized (run 'bd init' to enable issue tracking)");
+    if (fix) {
+      info("Initializing beads...");
+      try {
+        await $`bd init`.nothrow();
+        success(".beads initialized");
+        fixed++;
+      } catch {
+        warn("bd init failed - run manually");
+      }
+    } else {
+      warn(".beads not initialized (run 'beans doctor --fix' or 'bd init')");
+    }
   }
   
   // Check config
@@ -365,10 +426,16 @@ async function cmdDoctor() {
   }
   
   log("");
+  if (fix && fixed > 0) {
+    log(`${c.green}${c.bold}🔧 Fixed ${fixed} issue(s)${c.reset}`);
+  }
   if (issues === 0) {
     log(`${c.green}${c.bold}✅ BEANS is healthy!${c.reset}`);
   } else {
-    log(`${c.yellow}⚠ ${issues} issue(s) found. Run 'beans init' to fix.${c.reset}`);
+    log(`${c.yellow}⚠ ${issues} issue(s) found.${c.reset}`);
+    if (!fix) {
+      log(`${c.dim}Run 'beans doctor --fix' to auto-fix.${c.reset}`);
+    }
   }
   log("");
 }
@@ -387,6 +454,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}config --github${c.reset}   Set GitHub token
   ${c.cyan}config --show${c.reset}     Show current configuration
   ${c.cyan}doctor${c.reset}            Check installation status
+  ${c.cyan}doctor --fix${c.reset}      Auto-fix issues (install tools, run bd doctor)
   ${c.cyan}help${c.reset}              Show this help message
 
 ${c.bold}In Claude Code:${c.reset}
@@ -418,7 +486,7 @@ switch (command) {
     await cmdConfig(args);
     break;
   case "doctor":
-    await cmdDoctor();
+    await cmdDoctor(args);
     break;
   case "help":
   case "--help":
